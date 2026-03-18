@@ -32,7 +32,7 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* Recent Activity */}
+                {/* Recent Reports */}
                 <div className="bg-white rounded-xl p-4 shadow">
                     <h3 className="font-bold text-gray-700 mb-3">Recent Reports</h3>
                     <div className="flex flex-col gap-3">
