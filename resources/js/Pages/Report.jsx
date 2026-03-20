@@ -51,10 +51,25 @@ export default function Report() {
 
 
     const geoLocation = () =>{
-        navigator.geolocation.getCurrentPosition(pos =>{
+        if(!navigator.geolocation){
+            alert('Geolcation is not supported!');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            pos =>{
             handleChange('latitude',post.coords.latitude);
             handleChange('longitude',post.coords.longitude);
-        });
+            },
+            error =>{
+                switch(error.code){
+                    case 1: 'Permission denied! Please allow location access.'; break;
+                    case 2: 'Location unavailable!'; break;
+                    case 3: 'Location request time out!'; break;
+                }
+            }
+
+        );
     };
 
     const handleSubmit = () =>{
