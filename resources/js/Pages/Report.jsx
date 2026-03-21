@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from '@inertiajs/react';
 import MobileLayout from '../Layouts/MobileLayout';
 
 export default function Report() {
@@ -10,6 +11,7 @@ export default function Report() {
         radius:'',
         latitude:'',
         longitude:'',
+        photo_path:'',
     });
 
     const incidentTypes = [
@@ -58,24 +60,66 @@ export default function Report() {
 
         navigator.geolocation.getCurrentPosition(
             pos =>{
-            handleChange('latitude',post.coords.latitude);
-            handleChange('longitude',post.coords.longitude);
+                setForm(prev => ({
+                    ...prev,
+                    latitude:pos.coords.latitude,
+                    longitude:pos.coords.longitude,
+
+            }));
             },
             error =>{
                 switch(error.code){
-                    case 1: 'Permission denied! Please allow location access.'; break;
-                    case 2: 'Location unavailable!'; break;
-                    case 3: 'Location request time out!'; break;
+                    case 1: alert('Permission denied! Please allow location access.'); break;
+                    case 2: alert('Location unavailable!'); break;
+                    case 3: alert('Location request time out!'); break;
                 }
             }
 
         );
     };
 
+    const takePhoto = async () =>{
+        try {
+        const { Camera, On, Events } = await import('#nativephp');
+                On(Events.Camera.PhotoTaken, (payload) =>{
+
+                setForm(prev =>({
+                    ...prev,
+                    photo_path: payload.path,
+                }));
+                })
+
+                await Camera.getPhoto();
+            
+        }catch (error)
+        {
+            alert('Camera not available in browser. Test Jump.');
+
+        }
+    };
+
     const handleSubmit = () =>{
-        console.log('Report submitted:',form);
-        alert('Report submitted successfully');
-    }
+        console.log('Form data: ',form);
+        router.post('/report', form, {
+            onSuccess: () => {
+                alert('Report submitted successfully!');
+                setForm({
+                    incident_type: '',
+                    severity:'',
+                    barangay:'',
+                    description:'',
+                    radius:'',
+                    latitude:'',
+                    longitude:'',
+                });
+            },
+            onError: (errors)=>{
+                alert('Please fill all required fileds!');
+                console.log(errors);
+            }
+        });
+    };
+
 
 
     return (
@@ -177,6 +221,24 @@ export default function Report() {
                         {form.latitude ? `${form.latitude}, ${form.longitude}` : 'Tap to capture location'}
                         </button>
                 </div>
+
+                {/*Take photos*/}
+                <div className="bg-white rounded-xl p-4 shadow">
+                    <label className="text-xs text-gray-500 uppercase tracking-wide">Photo documentations</label>
+                    <button 
+                        onClick ={takePhoto}
+                        className="w-full mt-2 py-2 border-gray-100 border  border-gray-200 rounded-lg items-center"
+                    ><span>📸</span>
+                    {form.photo_path ? 'Photo captured! ✅' : 'Take Photo'}
+                    </button>
+                    {form.photo_path && (
+                        <img src={form.photo_path}
+                            className="mt-2 w-full rounded-lg" 
+                            alt="Incident photo" 
+                            />
+                        )}
+                </div>
+
                 {/*Handle submit*/}
                 <button onClick={handleSubmit} 
                 className="w-full py-4 bg-red-700 text-white  rounded-lg font-bold text-lg">Submit</button>
