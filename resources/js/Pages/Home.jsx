@@ -1,8 +1,30 @@
+import { useState } from 'react';
 import MobileLayout from '../Layouts/MobileLayout';
+import ReactTimeAgo from 'react-time-ago';
 
-export default function Home() {
+import javascriptTimeAgo from 'javascript-time-ago';
+
+// Import locales (necessary for the library to work)
+import en from 'javascript-time-ago/locale/en.json';
+javascriptTimeAgo.addDefaultLocale(en);
+
+
+
+const incidentEmoji = (type) => {
+        if (type === 'Flooding') return '🌊';
+        if (type === 'Landslide') return '⛰️';
+        if (type === 'Fire') return '🔥';
+        if (type === 'Strong Winds') return '💨';
+        if (type === 'Damage House') return '🏚️';
+        if (type === 'Road Blocked') return '🚨';
+        if (type === 'Missing person') return '👤';
+        if (type === 'Medical Emergency') return '🚑';
+        return '⚠️';
+    };
+
+export default function Home({reports}) {
     return (
-        <MobileLayout title="Disaster Mapper">
+        <MobileLayout title="Disaster Mapper" active="home">
             <div className="p-4 flex flex-col gap-4">
 
                 {/* Alert Status Card */}
@@ -35,28 +57,24 @@ export default function Home() {
                 {/* Recent Reports */}
                 <div className="bg-white rounded-xl p-4 shadow">
                     <h3 className="font-bold text-gray-700 mb-3">Recent Reports</h3>
+
                     <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3 border-b pb-2">
-                            <span className="text-2xl">🌊</span>
+                    {reports && reports.length > 0 ? 
+                    (reports.map(report =>(
+                        <div key={report.id} className="flex items-center gap-3 border-b pb-2">
+                            <span className="text-2xl">{incidentEmoji(report.incident_type)}</span>
+
                             <div>
-                                <p className="text-sm font-medium">Flooding - Brgy. Batong Buhay</p>
-                                <p className="text-xs text-gray-400">10 mins ago</p>
+                                <p className="text-sm font-medium">{report.incident_type} - {report.barangay}</p>
+                                <p className="text-xs text-gray-400"><ReactTimeAgo date={new Date(report.created_at)} locale="en-US" /></p>
                             </div>
+                       
                         </div>
-                        <div className="flex items-center gap-3 border-b pb-2">
-                            <span className="text-2xl">🏚️</span>
-                            <div>
-                                <p className="text-sm font-medium">Damaged House - Brgy. Ligaya</p>
-                                <p className="text-xs text-gray-400">25 mins ago</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl">🚨</span>
-                            <div>
-                                <p className="text-sm font-medium">Road Blocked - Brgy. Malpalon</p>
-                                <p className="text-xs text-gray-400">1 hour ago</p>
-                            </div>
-                        </div>
+                    ))) : (
+
+                        <p className="text-xs text-gray-400">No reports yet</p> )
+
+}
                     </div>
                 </div>
 
