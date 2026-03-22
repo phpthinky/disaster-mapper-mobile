@@ -1,0 +1,16 @@
+[2026-03-22 11:33:44] === NativePHP Android Build Started ===
+[2026-03-22 11:33:44] PHP Version: 8.3.6
+[2026-03-22 11:33:44] OS: Linux
+[2026-03-22 11:33:44] Working Directory: /home/harold/disaster-mapper-mobile
+[2026-03-22 11:33:44] Build Type: debug
+[2026-03-22 11:33:44] Android project path: /home/harold/disaster-mapper-mobile/nativephp/android
+[2026-03-22 11:33:44] Validating build environment...
+[2026-03-22 11:33:44]   NATIVEPHP_APP_ID: com.harold.capstonedemo
+[2026-03-22 11:33:44]   NATIVEPHP_APP_VERSION: 1.0.0
+[2026-03-22 11:33:44] Build environment validation passed
+[2026-03-22 11:33:44] Checking ADB availability...
+[2026-03-22 11:33:44] ADB is available
+[2026-03-22 11:34:42] Validating build environment...
+[2026-03-22 11:34:42]   NATIVEPHP_APP_ID: com.harold.capstonedemo
+[2026-03-22 11:34:42]   NATIVEPHP_APP_VERSION: 1.0.0
+[2026-03-22 11:34:42] Build environment validation passed
