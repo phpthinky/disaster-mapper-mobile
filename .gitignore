@@ -1,0 +1,7 @@
+node_modules
+vendors
+.env
+storage/framework
+storage/native-build
+storage/public
+.zip
