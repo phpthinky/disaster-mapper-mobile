@@ -299,10 +299,10 @@ return [
     */
 
     'permissions' => [
-        //
-        'camera' =>true,
-        'storage_read'=> true,
-        'storage_write'=> true,
+        'camera' => true,
+        'storage_read' => true,
+        'storage_write' => true,
+        'location' => true,
     ],
 
     /*
