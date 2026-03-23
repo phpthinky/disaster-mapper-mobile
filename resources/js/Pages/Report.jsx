@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import MobileLayout from '../Layouts/MobileLayout';
 
@@ -13,6 +13,8 @@ export default function Report() {
         longitude:'',
         photo_path:'',
     });
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const cameraListenerRef = useRef(null);
 
     const incidentTypes = [
         'Flooding',
@@ -80,21 +82,33 @@ export default function Report() {
 
     const takePhoto = async () =>{
         try {
-        const { Camera, On, Events } = await import('#nativephp');
-                On(Events.Camera.PhotoTaken, (payload) =>{
+            const { Camera, On, Off, Events } = await import('#nativephp');
 
-                setForm(prev =>({
+            // Remove any previous listener to prevent stacking on repeated taps
+            if (cameraListenerRef.current) {
+                Off(Events.Camera.PhotoTaken, cameraListenerRef.current);
+                cameraListenerRef.current = null;
+            }
+
+            const handler = (payload) => {
+                const path = payload.path || payload.data;
+
+                setForm(prev => ({
                     ...prev,
-                    photo_path: payload.path,
+                    photo_path: path,
                 }));
-                })
 
-                await Camera.getPhoto();
-            
-        }catch (error)
-        {
+                // Convert native file path to a web-accessible URL for WebView preview
+                const previewUrl = window.Capacitor?.convertFileSrc?.(path) ?? path;
+                setPhotoPreview(previewUrl);
+            };
+
+            cameraListenerRef.current = handler;
+            On(Events.Camera.PhotoTaken, handler);
+            await Camera.getPhoto();
+
+        } catch (error) {
             alert('Camera not available in browser. Test Jump.');
-
         }
     };
 
@@ -111,7 +125,9 @@ export default function Report() {
                     radius:'',
                     latitude:'',
                     longitude:'',
+                    photo_path:'',
                 });
+                setPhotoPreview(null);
             },
             onError: (errors)=>{
                 alert('Please fill all required fileds!');
@@ -231,10 +247,10 @@ export default function Report() {
                     ><span>📸</span>
                     {form.photo_path ? 'Photo captured! ✅' : 'Take Photo'}
                     </button>
-                    {form.photo_path && (
-                        <img src={form.photo_path}
-                            className="mt-2 w-full rounded-lg" 
-                            alt="Incident photo" 
+                    {photoPreview && (
+                        <img src={photoPreview}
+                            className="mt-2 w-full rounded-lg"
+                            alt="Incident photo"
                             />
                         )}
                 </div>
