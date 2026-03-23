@@ -11,10 +11,10 @@ export default function Report() {
         radius:'',
         latitude:'',
         longitude:'',
-        photo_path:'',
     });
+    const [photoFile, setPhotoFile] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
-    const cameraListenerRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const incidentTypes = [
         'Flooding',
@@ -52,7 +52,6 @@ export default function Report() {
     const handleChange = (field,value) =>{
         setForm({...form, [field]:value});
     };
-
 
     const geoLocation = async () => {
         // Try NativePHP's native Geolocation bridge first — it properly triggers the
@@ -94,49 +93,37 @@ export default function Report() {
         );
     };
 
-    const takePhoto = async () =>{
-        try {
-            const { Camera, On, Off, Events } = await import('#nativephp');
-
-            // Remove any previous listener to prevent stacking on repeated taps
-            if (cameraListenerRef.current) {
-                Off(Events.Camera.PhotoTaken, cameraListenerRef.current);
-                cameraListenerRef.current = null;
-            }
-
-            const handler = (payload) => {
-                const path = payload.path || payload.data;
-
-                setForm(prev => ({
-                    ...prev,
-                    photo_path: path,
-                }));
-
-                // Serve the native file through the PHP server so WebView can display it.
-                // Falls back to a base64 data URL if the payload already contains image data.
-                let previewUrl = null;
-                if (payload.path) {
-                    previewUrl = `/native-photo?path=${encodeURIComponent(payload.path)}`;
-                } else if (payload.data) {
-                    previewUrl = payload.data.startsWith('data:')
-                        ? payload.data
-                        : `data:image/jpeg;base64,${payload.data}`;
-                }
-                setPhotoPreview(previewUrl);
-            };
-
-            cameraListenerRef.current = handler;
-            On(Events.Camera.PhotoTaken, handler);
-            await Camera.getPhoto();
-
-        } catch (error) {
-            alert('Camera not available in browser. Test Jump.');
-        }
+    // Use the device camera via a standard file input — this avoids the NativePHP
+    // CameraForegroundService crash on Android 14 (shortService killed when app
+    // goes to background while camera is open). capture="environment" opens the
+    // rear camera directly without going through a file picker on most devices.
+    const takePhoto = () => {
+        fileInputRef.current?.click();
     };
 
-    const handleSubmit = () =>{
-        console.log('Form data: ',form);
-        router.post('/report', form, {
+    const handlePhotoSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setPhotoFile(file);
+
+        const reader = new FileReader();
+        reader.onload = (ev) => setPhotoPreview(ev.target.result);
+        reader.readAsDataURL(file);
+
+        // Reset so the same file can be re-selected if needed
+        e.target.value = '';
+    };
+
+    const handleSubmit = () => {
+        const data = new FormData();
+        Object.entries(form).forEach(([key, value]) => {
+            if (value !== null && value !== '') data.append(key, value);
+        });
+        if (photoFile) data.append('photo', photoFile);
+
+        router.post('/report', data, {
+            forceFormData: true,
             onSuccess: () => {
                 alert('Report submitted successfully!');
                 setForm({
@@ -147,12 +134,12 @@ export default function Report() {
                     radius:'',
                     latitude:'',
                     longitude:'',
-                    photo_path:'',
                 });
+                setPhotoFile(null);
                 setPhotoPreview(null);
             },
             onError: (errors)=>{
-                alert('Please fill all required fileds!');
+                alert('Please fill all required fields!');
                 console.log(errors);
             }
         });
@@ -162,12 +149,22 @@ export default function Report() {
 
     return (
         <MobileLayout title="File Report" active="report">
+            {/* Hidden file input — triggers camera on mobile via capture attribute */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handlePhotoSelect}
+            />
+
             <div className="p-4 flex flex-col gap-4">
                 {/*Incident Types*/}
                 <div className="bg-white rounded-xl p-4 shadow">
                     <label className="text-xs uppercase tracking-wide">Incident Type</label>
                     <select
-                        className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-sm"  
+                        className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-sm"
                         value={form.incident_type}
                         onChange={e => handleChange('incident_type',e.target.value)}>
                     <option value ="">Select incident type..</option>
@@ -185,13 +182,13 @@ export default function Report() {
                             <button
                                 key={level}
                                 onClick={() => handleChange('severity',level)}
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium border 
-                                ${form.severity === level ? 
-                                    level === 'Minor' 
-                                    ? 'bg-yellow-400 text-white border-yellow-400' 
-                                    : level === 'Major' 
-                                        ? 'bg-orange-500 text-white border-orange-500' 
-                                        : 'bg-red-600 text-white border-red-600' 
+                                className={`flex-1 py-2 rounded-lg text-sm font-medium border
+                                ${form.severity === level ?
+                                    level === 'Minor'
+                                    ? 'bg-yellow-400 text-white border-yellow-400'
+                                    : level === 'Major'
+                                        ? 'bg-orange-500 text-white border-orange-500'
+                                        : 'bg-red-600 text-white border-red-600'
                                     : 'bg-white text-gray-400 border-gray-200'
                                 }`}>
                                 {level}
@@ -213,15 +210,15 @@ export default function Report() {
                         {barangays.map(brgy =>(
                             <option key={brgy} value={brgy} >{brgy}</option>
                             ))}
-                        
+
                     </select>
                 </div>
                 {/*Incident Description*/}
                 <div className="bg-white rounded-xl p-4 shadow">
                         <label className="text-xs uppercase tracking-wide">Description</label>
                         <textarea className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-sm"
-                            value={form.description} 
-                            placeholder="Describe affected area..." 
+                            value={form.description}
+                            placeholder="Describe affected area..."
                             onChange={e => handleChange('description', e.target.value)}
 
                         />
@@ -235,17 +232,17 @@ export default function Report() {
                     <div className="flex gap-2 mt-2">
                     {['50m','100m','500m','1km'].map(r =>
                         <button
-                            key={r} 
+                            key={r}
                             onClick={() => handleChange('radius',r)}
                             className={`flex-1 py-2 rounded-lg text-sm font-medium border
                                 ${form.radius === r
-                                 ? 'bg-red-700 text-white border-red-700' 
+                                 ? 'bg-red-700 text-white border-red-700'
                                  : 'bg-white text-gray-400 border-gray-200'
                             }`}>
                         {r}</button>
 
                         )}
-                        
+
                     </div>
                 </div>
 
@@ -253,7 +250,7 @@ export default function Report() {
                 <div className="bg-white rounded-xl p-4 shadow">
                     <label className="text-xs text-gray-500 uppercase tracking-wide">GPS Location</label>
                     <button
-                        onClick={geoLocation} 
+                        onClick={geoLocation}
                         className="w-full mt-2 gap-2 bg-gray-100  border border-gray-200 rounded-lg text-sm  text-gray-500 items-center justify-center gap-2">
                         <span>📍</span>
                         {form.latitude ? `${form.latitude}, ${form.longitude}` : 'Tap to capture location'}
@@ -263,11 +260,11 @@ export default function Report() {
                 {/*Take photos*/}
                 <div className="bg-white rounded-xl p-4 shadow">
                     <label className="text-xs text-gray-500 uppercase tracking-wide">Photo documentations</label>
-                    <button 
-                        onClick ={takePhoto}
+                    <button
+                        onClick={takePhoto}
                         className="w-full mt-2 py-2 border-gray-100 border  border-gray-200 rounded-lg items-center"
                     ><span>📸</span>
-                    {form.photo_path ? 'Photo captured! ✅' : 'Take Photo'}
+                    {photoFile ? 'Photo captured! ✅' : 'Take Photo'}
                     </button>
                     {photoPreview && (
                         <img src={photoPreview}
@@ -278,7 +275,7 @@ export default function Report() {
                 </div>
 
                 {/*Handle submit*/}
-                <button onClick={handleSubmit} 
+                <button onClick={handleSubmit}
                 className="w-full py-4 bg-red-700 text-white  rounded-lg font-bold text-lg">Submit</button>
 
             </div>
