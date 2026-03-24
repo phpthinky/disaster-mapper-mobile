@@ -84,13 +84,35 @@ export default function Report() {
             const result = await Camera.GetPhoto();
             if (!result) return;
 
-            // Bridge returns { dataUrl, mimeType } or a raw dataUrl string
-            const dataUrl = result.dataUrl ?? result;
+            // NativePHP 3.x bridge can return several shapes:
+            //   { dataUrl, mimeType }  — base64 data URI
+            //   { path }               — on-device file path (file:/// or content://)
+            //   a raw base64 string    — no prefix
+            let dataUrl = null;
+
+            if (typeof result === 'string') {
+                // Raw base64 or already a data URI
+                dataUrl = result.startsWith('data:') ? result : `data:image/jpeg;base64,${result}`;
+            } else if (result.dataUrl) {
+                dataUrl = result.dataUrl;
+            } else if (result.path) {
+                // Fetch from the on-device file URI — no external storage permission needed
+                // because NativePHP stores photos in the app's private cache dir.
+                const fetched = await fetch(result.path);
+                const blob = await fetched.blob();
+                dataUrl = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(blob);
+                });
+            }
+
+            if (!dataUrl) return;
             setPhotoPreview(dataUrl);
 
-            // Convert dataUrl → Blob → File for FormData upload
-            const res = await fetch(dataUrl);
-            const blob = await res.blob();
+            // Convert dataUrl → Blob → File for FormData upload to FieldReportController
+            const fetched = await fetch(dataUrl);
+            const blob = await fetched.blob();
             setPhotoFile(new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' }));
         } catch (_) {
             // NativePHP Camera not available (browser / dev) — fall back to file input
