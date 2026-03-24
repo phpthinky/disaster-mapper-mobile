@@ -303,7 +303,7 @@ return [
         'storage_read' => true,
         'storage_write' => true,
         'location' => true,
-        'media_images'=> true,
+        'media_images' => true,
     ],
 
     /*
