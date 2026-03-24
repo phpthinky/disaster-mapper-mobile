@@ -8,13 +8,17 @@
         "framework"
     ],
     "license": "MIT",
+    "repositories":{
+            "type": "vcs",
+            "url": "https://github.com/phpthinky/mobile-camera"
+    },
     "require": {
         "php": "^8.4",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "nativephp/mobile": "^3.0",
-        "nativephp/mobile-camera": "^1.0"
+        "nativephp/mobile-camera": "dev-main"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -88,6 +92,6 @@
             "php-http/discovery": true
         }
     },
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "prefer-stable": true
 }
