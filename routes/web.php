@@ -20,15 +20,9 @@ Route::get('/profile', function () {
     return Inertia::render('Profile');
 });
 
-// Serve native camera photos through PHP so WebView can display them via <img src>
-Route::get('/native-photo', function (Illuminate\Http\Request $request) {
-    $path = $request->query('path', '');
-    $real = $path ? realpath($path) : false;
-
-    // Only serve files that actually exist inside the device's app data directory
-    if (! $real || ! file_exists($real) || ! str_starts_with($real, '/data/')) {
-        abort(404);
-    }
-
-    return response()->file($real);
-});
+// Serve stored report photos (photo_path from the field_reports table)
+Route::get('/report-photo/{path}', function (string $path) {
+    $full = storage_path('app/' . $path);
+    if (! file_exists($full)) abort(404);
+    return response()->file($full);
+})->where('path', '.+');
