@@ -54,29 +54,43 @@ export default function Report() {
     };
 
 
-    const geoLocation = () =>{
-        if(!navigator.geolocation){
-            alert('Geolcation is not supported!');
+    const geoLocation = async () => {
+        // Try NativePHP's native Geolocation bridge first — it properly triggers the
+        // Android runtime permission dialog and bypasses WebView geolocation restrictions.
+        try {
+            const { Geolocation } = await import('#nativephp');
+            const position = await Geolocation.getCurrentPosition();
+            setForm(prev => ({
+                ...prev,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+            }));
+            return;
+        } catch (_) {
+            // NativePHP Geolocation not available — fall through to browser API
+        }
+
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported!');
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
-            pos =>{
+            pos => {
                 setForm(prev => ({
                     ...prev,
-                    latitude:pos.coords.latitude,
-                    longitude:pos.coords.longitude,
-
-            }));
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                }));
             },
-            error =>{
-                switch(error.code){
+            error => {
+                switch (error.code) {
                     case 1: alert('Permission denied! Please allow location access.'); break;
                     case 2: alert('Location unavailable!'); break;
-                    case 3: alert('Location request time out!'); break;
+                    case 3: alert('Location request timed out!'); break;
                 }
-            }
-
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
@@ -98,8 +112,16 @@ export default function Report() {
                     photo_path: path,
                 }));
 
-                // Convert native file path to a web-accessible URL for WebView preview
-                const previewUrl = window.Capacitor?.convertFileSrc?.(path) ?? path;
+                // Serve the native file through the PHP server so WebView can display it.
+                // Falls back to a base64 data URL if the payload already contains image data.
+                let previewUrl = null;
+                if (payload.path) {
+                    previewUrl = `/native-photo?path=${encodeURIComponent(payload.path)}`;
+                } else if (payload.data) {
+                    previewUrl = payload.data.startsWith('data:')
+                        ? payload.data
+                        : `data:image/jpeg;base64,${payload.data}`;
+                }
                 setPhotoPreview(previewUrl);
             };
 
