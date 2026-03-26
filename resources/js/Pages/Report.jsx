@@ -11,10 +11,10 @@ export default function Report() {
         radius: '',
         latitude: '',
         longitude: '',
+        photo_path: '',
     });
-    const [photoFile, setPhotoFile] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
-    const fileInputRef = useRef(null);
+    const cameraListenerRef = useRef(null);
 
     const incidentTypes = [
         'Flooding',
@@ -72,73 +72,53 @@ export default function Report() {
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
             })),
-            (err) => alert('Could not get location: ' + err.message)
+            (err) => alert('Could not get location: ' + err.message),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
     const takePhoto = async () => {
-        // Use NativePHP Camera.GetPhoto — works with the fixed CameraForegroundService
-        // (android min_version 26, foregroundServiceType "camera") from mobile-camera package.
         try {
-            const { Camera } = await import('#nativephp');
-            const result = await Camera.GetPhoto();
-            if (!result) return;
+            const { Camera, On, Off, Events } = await import('#nativephp');
 
-            // NativePHP 3.x bridge can return several shapes:
-            //   { dataUrl, mimeType }  — base64 data URI
-            //   { path }               — on-device file path (file:/// or content://)
-            //   a raw base64 string    — no prefix
-            let dataUrl = null;
-
-            if (typeof result === 'string') {
-                // Raw base64 or already a data URI
-                dataUrl = result.startsWith('data:') ? result : `data:image/jpeg;base64,${result}`;
-            } else if (result.dataUrl) {
-                dataUrl = result.dataUrl;
-            } else if (result.path) {
-                // Fetch from the on-device file URI — no external storage permission needed
-                // because NativePHP stores photos in the app's private cache dir.
-                const fetched = await fetch(result.path);
-                const blob = await fetched.blob();
-                dataUrl = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.readAsDataURL(blob);
-                });
+            // Remove any previous listener to prevent stacking on repeated taps
+            if (cameraListenerRef.current) {
+                Off(Events.Camera.PhotoTaken, cameraListenerRef.current);
+                cameraListenerRef.current = null;
             }
 
-            if (!dataUrl) return;
-            setPhotoPreview(dataUrl);
+            const handler = (payload) => {
+                const path = payload.path || payload.data;
 
-            // Convert dataUrl → Blob → File for FormData upload to FieldReportController
-            const fetched = await fetch(dataUrl);
-            const blob = await fetched.blob();
-            setPhotoFile(new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' }));
-        } catch (_) {
-            // NativePHP Camera not available (browser / dev) — fall back to file input
-            fileInputRef.current?.click();
+                setForm(prev => ({
+                    ...prev,
+                    photo_path: path,
+                }));
+
+                // Serve the native file through the PHP server so WebView can display it.
+                // Falls back to a base64 data URL if the payload already contains image data.
+                let previewUrl = null;
+                if (payload.path) {
+                    previewUrl = `/native-photo?path=${encodeURIComponent(payload.path)}`;
+                } else if (payload.data) {
+                    previewUrl = payload.data.startsWith('data:')
+                        ? payload.data
+                        : `data:image/jpeg;base64,${payload.data}`;
+                }
+                setPhotoPreview(previewUrl);
+            };
+
+            cameraListenerRef.current = handler;
+            On(Events.Camera.PhotoTaken, handler);
+            await Camera.getPhoto();
+
+        } catch (error) {
+            alert('Camera not available in browser. Test on device.');
         }
     };
 
-    const handlePhotoSelect = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setPhotoFile(file);
-        const reader = new FileReader();
-        reader.onload = (ev) => setPhotoPreview(ev.target.result);
-        reader.readAsDataURL(file);
-        e.target.value = '';
-    };
-
     const handleSubmit = () => {
-        const data = new FormData();
-        Object.entries(form).forEach(([key, value]) => {
-            if (value !== null && value !== '') data.append(key, value);
-        });
-        if (photoFile) data.append('photo', photoFile);
-
-        router.post('/report', data, {
-            forceFormData: true,
+        router.post('/report', form, {
             onSuccess: () => {
                 alert('Report submitted successfully!');
                 setForm({
@@ -149,8 +129,8 @@ export default function Report() {
                     radius: '',
                     latitude: '',
                     longitude: '',
+                    photo_path: '',
                 });
-                setPhotoFile(null);
                 setPhotoPreview(null);
             },
             onError: (errors) => {
@@ -162,16 +142,6 @@ export default function Report() {
 
     return (
         <MobileLayout title="File Report" active="report">
-            {/* Hidden file input — fallback for browser/dev environments */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handlePhotoSelect}
-            />
-
             <div className="p-4 flex flex-col gap-4">
                 {/* Incident Types */}
                 <div className="bg-white rounded-xl p-4 shadow">
@@ -272,7 +242,7 @@ export default function Report() {
                         onClick={takePhoto}
                         className="w-full mt-2 py-2 border border-gray-200 rounded-lg items-center">
                         <span>📸</span>
-                        {photoFile ? ' Photo captured! ✅' : ' Take Photo'}
+                        {form.photo_path ? ' Photo captured! ✅' : ' Take Photo'}
                     </button>
                     {photoPreview && (
                         <img

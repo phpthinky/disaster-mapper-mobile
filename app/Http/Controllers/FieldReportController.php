@@ -24,15 +24,9 @@ class FieldReportController extends Controller
             'radius'        => 'nullable|string',
             'latitude'      => 'nullable|numeric',
             'longitude'     => 'nullable|numeric',
-            'photo'         => 'nullable|image|max:10240',
+            'photo_path'    => 'nullable|string',
             'reported_by'   => 'nullable|string',
         ]);
-
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            // Store in storage/app/photos — accessible by PHP on-device, no public symlink needed
-            $photoPath = $request->file('photo')->store('photos', 'local');
-        }
 
         FieldReport::create([
             'incident_type' => $validated['incident_type'],
@@ -42,7 +36,7 @@ class FieldReportController extends Controller
             'radius'        => $validated['radius'] ?? null,
             'latitude'      => $validated['latitude'] ?? null,
             'longitude'     => $validated['longitude'] ?? null,
-            'photo_path'    => $photoPath,
+            'photo_path'    => $validated['photo_path'] ?? null,
             'reported_by'   => $validated['reported_by'] ?? null,
         ]);
 
